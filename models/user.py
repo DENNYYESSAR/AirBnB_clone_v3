@@ -1,28 +1,48 @@
 #!/usr/bin/python3
+""" holds class User"""
+import models
+from models.base_model import BaseModel, Base
+from os import getenv
+import sqlalchemy
+from sqlalchemy import Column, String
+from sqlalchemy.orm import relationship
+from hashlib import md5
+storage_type = os.environ.get('HBNB_TYPE_STORAGE')
 
-import hashlib
-from models.base_model import BaseModel
 
-
-class User(BaseModel):
-    """This class defines a user by various attributes"""
-    email = ""
-    password = ""
-    first_name = ""
-    last_name = ""
+class User(BaseModel, Base):
+    """Representation of a user """
+    if storage_type == 'db':
+        __tablename__ = 'users'
+        email = Column(String(128), nullable=False)
+        password = Column("password", String(128), nullable=False)
+        first_name = Column(String(128), nullable=True)
+        last_name = Column(String(128), nullable=True)
+        places = relationship("Place", backref="user")
+        reviews = relationship("Review", backref="user")
+    else:
+        email = ""
+        password = ""
+        first_name = ""
+        last_name = ""
 
     def __init__(self, *args, **kwargs):
-        """Initializes a new User instance"""
+        """initializes user"""
         super().__init__(*args, **kwargs)
-        if 'password' in kwargs:
-            self.password = self.hash_password(kwargs['password'])
 
-    def __setattr__(self, name, value):
-        """Sets attribute to a new value, hashing password if necessary"""
-        if name == "password":
-            value = self.hash_password(value)
-        super().__setattr__(name, value)
+    @property
+    def password(self):
+        """
+        getter for password
+        :return: password (hashed)
+        """
+        return self.__dict__.get("password")
 
-    def hash_password(self, password):
-        """Hashes a password using MD5"""
-        return hashlib.md5(password.encode()).hexdigest()
+    @password.setter
+    def password(self, password):
+        """
+        Password setter, with md5 hasing
+        :param password: password
+        :return: nothing
+        """
+        self.__dict__["password"] = md5(password.encode('utf-8')).hexdigest()

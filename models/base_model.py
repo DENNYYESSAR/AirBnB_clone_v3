@@ -10,11 +10,11 @@ import sqlalchemy
 from sqlalchemy import Column, String, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 import uuid
-import hashlib
+import json
 
 time = "%Y-%m-%dT%H:%M:%S.%f"
 
-if models.storage_t == "db":
+if storage_type == "db":
     Base = declarative_base()
 else:
     Base = object
@@ -22,7 +22,7 @@ else:
 
 class BaseModel:
     """The BaseModel class from which future classes will be derived"""
-    if models.storage_t == "db":
+    if storage_type == "db":
         id = Column(String(60), primary_key=True)
         created_at = Column(DateTime, default=datetime.utcnow)
         updated_at = Column(DateTime, default=datetime.utcnow)
@@ -52,6 +52,15 @@ class BaseModel:
         """String representation of the BaseModel class"""
         return "[{:s}] ({:s}) {}".format(self.__class__.__name__, self.id,
                                          self.__dict__)
+    def __is_serializable(self, obj_v):
+        """
+            private: checks if object is serializable
+        """
+        try:
+            obj_to_str = json.dumps(obj_v)
+            return obj_to_str is not None and isinstance(obj_to_str, str)
+        except:
+            return False
 
     def save(self):
         """updates the attribute 'updated_at' with the current datetime"""
@@ -59,17 +68,26 @@ class BaseModel:
         models.storage.new(self)
         models.storage.save()
 
-    def to_dict(self, save_fs=False):
-        """Returns a dictionary containing all keys/values of the instance"""
-        dict_copy = self.__dict__.copy()
-        dict_copy['__class__'] = self.__class__.__name__
-        dict_copy['created_at'] = self.created_at.isoformat()
-        dict_copy['updated_at'] = self.updated_at.isoformat()
-        if '_sa_instance_state' in dict_copy:
-            del dict_copy['_sa_instance_state']
-        if not save_fs and 'password' in dict_copy:
-            del dict_copy['password']
-        return dict_copy
+    def to_json(self):
+        """returns json representation of self"""
+        bm_dict = {}
+        for key, value in (self.__dict__).items():
+            if (self.__is_serializable(value)):
+                bm_dict[key] = value
+            else:
+                bm_dict[key] = str(value)
+        bm_dict['__class__'] = type(self).__name__
+        if '_sa_instance_state' in bm_dict:
+            bm_dict.pop('_sa_instance_state')
+        if storage_type == "db" and 'password' in bm_dict:
+            bm_dict.pop('password')
+        return bm_dict
+
+    def __str__(self):
+        """returns string type representation of object instance"""
+        class_name = type(self).__name__
+        return '[{}] ({}) {}'.format(class_name, self.id, self.__dict__)
+
 
     def delete(self):
         """delete the current instance from the storage"""
